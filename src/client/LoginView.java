@@ -4,6 +4,10 @@
  */
 package client;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+
 /**
  *
  * @author ASUS
@@ -27,11 +31,11 @@ public class LoginView extends javax.swing.JFrame {
     private void initComponents() {
 
         txt_email_login = new javax.swing.JTextField();
-        pass_login = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         btn_login = new javax.swing.JButton();
         jLabel3 = new javax.swing.JLabel();
+        pass_login = new javax.swing.JPasswordField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -40,6 +44,11 @@ public class LoginView extends javax.swing.JFrame {
         jLabel2.setText("Password");
 
         btn_login.setText("Login");
+        btn_login.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btn_loginActionPerformed(evt);
+            }
+        });
 
         jLabel3.setForeground(new java.awt.Color(0, 51, 255));
         jLabel3.setText("You dont have an account yet?");
@@ -59,11 +68,11 @@ public class LoginView extends javax.swing.JFrame {
                     .addComponent(jLabel3)
                     .addComponent(btn_login, javax.swing.GroupLayout.PREFERRED_SIZE, 90, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel2)
-                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                        .addComponent(txt_email_login)
-                        .addComponent(pass_login, javax.swing.GroupLayout.DEFAULT_SIZE, 151, Short.MAX_VALUE))
-                    .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(120, 120, 120))
+                    .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 49, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addComponent(pass_login, javax.swing.GroupLayout.Alignment.LEADING)
+                        .addComponent(txt_email_login, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 151, Short.MAX_VALUE)))
+                .addContainerGap(120, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -74,9 +83,9 @@ public class LoginView extends javax.swing.JFrame {
                 .addComponent(txt_email_login, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jLabel2)
-                .addGap(10, 10, 10)
-                .addComponent(pass_login, javax.swing.GroupLayout.PREFERRED_SIZE, 36, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(pass_login, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jLabel3)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(btn_login, javax.swing.GroupLayout.PREFERRED_SIZE, 34, javax.swing.GroupLayout.PREFERRED_SIZE)
@@ -91,6 +100,51 @@ public class LoginView extends javax.swing.JFrame {
         re.setVisible(true);
         this.setVisible(false);
     }//GEN-LAST:event_jLabel3MouseClicked
+
+    private void btn_loginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btn_loginActionPerformed
+        String email = txt_email_login.getText();
+        String password = new String(pass_login.getPassword());
+
+        try {
+            DatagramSocket socket = new DatagramSocket();
+            InetAddress address = InetAddress.getByName("localhost");
+            String command = "LOGIN " + email + " " + password;
+            byte[] sendData = command.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, address, 8080);
+            socket.send(sendPacket);
+
+            byte[] receiveData = new byte[1024];
+            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+            socket.receive(receivePacket);
+            String response = new String(receivePacket.getData(), 0, receivePacket.getLength());
+
+            if (response.equals("Invalid account or password")) {
+                javax.swing.JOptionPane.showMessageDialog(this, "Invalid email or password. Please try again.");
+            } else {
+                // Đăng nhập thành công
+                System.out.println(response);
+                //javax.swing.JOptionPane.showMessageDialog(this, response);
+                
+                String command1 = "CONTENT_EMAIL " + email;
+                sendData = command1.getBytes();
+                sendPacket = new DatagramPacket(sendData, sendData.length, address, 8080);
+                socket.send(sendPacket);
+                
+                receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                socket.receive(receivePacket);
+                String content_email = new String(receivePacket.getData(), 0, receivePacket.getLength());
+                System.out.println(content_email);
+
+
+                ViewClient viewClient = new ViewClient(email, content_email);
+                viewClient.setVisible(true);
+                this.setVisible(false);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }//GEN-LAST:event_btn_loginActionPerformed
 
     /**
      * @param args the command line arguments
@@ -132,7 +186,7 @@ public class LoginView extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
-    private javax.swing.JTextField pass_login;
+    private javax.swing.JPasswordField pass_login;
     private javax.swing.JTextField txt_email_login;
     // End of variables declaration//GEN-END:variables
 }

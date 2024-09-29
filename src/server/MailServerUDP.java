@@ -1,6 +1,8 @@
 package server;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
@@ -22,6 +24,14 @@ public class MailServerUDP {
             return "Account already exists!";
         } else {
             accountDir.mkdirs();
+
+            // Tạo file password.txt để lưu mật khẩu
+            File passwordFile = new File(accountDir, "password.txt");
+            try (PrintWriter writer = new PrintWriter(passwordFile)) {
+                writer.println(password);
+                System.out.println("Password saved for account: " + accountName);
+            }
+
             File welcomeFile = new File(accountDir, "new_email.txt");
             try (PrintWriter writer = new PrintWriter(welcomeFile)) {
                 writer.println("Thank you for using this service. We hope that you will feel comfortable...");
@@ -31,25 +41,18 @@ public class MailServerUDP {
         }
     }
 
-    private static String receiveEmail(String sender, String recipient, DatagramSocket socket) throws IOException {
+    private static String receiveEmail(String sender, String recipient, String content) throws IOException {
         File accountDir = new File(MAIL_DIR + recipient);
         if (!accountDir.exists()) {
             return "Recipient account does not exist";
         }
-
-        // Nhận nội dung email từ client
-        byte[] buffer = new byte[1024];
-        DatagramPacket emailPacket = new DatagramPacket(buffer, buffer.length);
-        socket.receive(emailPacket);
-
-        String emailContent = new String(emailPacket.getData(), 0, emailPacket.getLength());
 
         // Tạo file mới với tên chứa timestamp để lưu email
         File emailFile = new File(accountDir, System.currentTimeMillis() + ".txt");
         try (PrintWriter writer = new PrintWriter(emailFile)) {
             writer.println("From: " + sender);
             writer.println("Content: ");
-            writer.println(emailContent);
+            writer.println(content);
         }
         return "Email sent successfully";
     }
@@ -74,28 +77,28 @@ public class MailServerUDP {
         return response.toString();
     }
 
-    private static String viewEmailsFromSender(String accountName, String sender) throws IOException {
-        File accountDir = new File(MAIL_DIR + accountName);
-        if (!accountDir.exists()) {
-            return "Account does not exist";
+    private static boolean authenticateUser(String email, String password) {
+        File accountDir = new File(MAIL_DIR + email);
+        File passwordFile = new File(accountDir, "password.txt");
+
+        if (!accountDir.exists() || !passwordFile.exists()) {
+            System.out.println("Account directory or password file does not exist.");
+            return false; // Tài khoản không tồn tại
         }
 
-        File[] emails = accountDir.listFiles();
-        if (emails == null || emails.length == 0) {
-            return "No emails found";
-        }
-
-        StringBuilder response = new StringBuilder();
-        for (File email : emails) {
-            List<String> lines = Files.readAllLines(Paths.get(email.getPath()));
-            if (!lines.isEmpty() && lines.get(0).contains("From: " + sender)) {
-                response.append("-----\n");
-                response.append(String.join("\n", lines));
-                response.append("\n");
+        try (BufferedReader reader = new BufferedReader(new FileReader(passwordFile))) {
+            String storedPassword = reader.readLine();
+            if (storedPassword == null) {
+                System.out.println("No password found in the file.");
+                return false; // Không có mật khẩu trong tệp
             }
+            System.out.println("Stored password: " + storedPassword);
+            return storedPassword.trim().equals(password.trim());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+        return false;
 
-        return response.length() > 0 ? response.toString() : "No emails found from " + sender;
     }
 
     public static void main(String[] args) {
@@ -108,7 +111,7 @@ public class MailServerUDP {
                 socket.receive(packet);
 
                 String request = new String(packet.getData(), 0, packet.getLength());
-                String[] parts = request.split(" ", 3);
+                String[] parts = request.split(" ", 4);
 
                 InetAddress clientAddress = packet.getAddress();
                 int clientPort = packet.getPort();
@@ -119,13 +122,20 @@ public class MailServerUDP {
                 } else if (parts[0].equals("SEND_EMAIL")) {
                     String sender = parts[1];
                     String recipient = parts[2];
-                    response = receiveEmail(sender, recipient, socket);
+                    String content = parts[3];
+                    response = receiveEmail(sender, recipient, content);
                 } else if (parts[0].equals("LOGIN")) {
+                    String email = parts[1];
+                    String password = parts[2];
+
+                    if (authenticateUser(email, password)) {
+                        response = "Login successful";
+                    } else {
+                        response = "Invalid account or password";
+                    }
+
+                } else if (parts[0].equals("CONTENT_EMAIL")) {
                     response = sendEmailList(parts[1]);
-                } else if (parts[0].equals("VIEW_EMAIL_FROM_SENDER")) {
-                    String accountName = parts[1];
-                    String sender = parts[2];
-                    response = viewEmailsFromSender(accountName, sender);
                 } else {
                     response = "Invalid command";
                 }
@@ -138,4 +148,5 @@ public class MailServerUDP {
             e.printStackTrace();
         }
     }
+
 }

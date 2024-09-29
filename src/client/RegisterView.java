@@ -7,6 +7,7 @@ package client;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import javax.swing.JOptionPane;
 
 /**
  *
@@ -121,6 +122,7 @@ public class RegisterView extends javax.swing.JFrame {
                 //gui lenh dang ky den server
                 DatagramSocket socket = new DatagramSocket();
                 InetAddress serverAddress = InetAddress.getByName("localhost");
+                //System.out.println(serverAddress);
                 String command = "NEW_ACCOUNT " + email + " " + password;
                 byte[] sendBuffer = command.getBytes();
                 DatagramPacket packet = new DatagramPacket(sendBuffer, sendBuffer.length, serverAddress, 8080);
@@ -132,6 +134,7 @@ public class RegisterView extends javax.swing.JFrame {
                 socket.receive(responsePacket);
                 String response = new String(responsePacket.getData(), 0, responsePacket.getLength());
                 System.out.println(response);
+                
                 LoginView login = new LoginView();
                 login.setVisible(true);
                 this.setVisible(false);
@@ -140,7 +143,10 @@ public class RegisterView extends javax.swing.JFrame {
                 e.printStackTrace();
             }
         }else {
-            System.out.println("Password do not match");
+            //System.out.println("Password do not match");
+            JOptionPane.showMessageDialog(null, "Password do not match!");
+            pass_register.setText("");
+            re_pass_register.setText("");
         } 
     }//GEN-LAST:event_btn_registerActionPerformed
 
